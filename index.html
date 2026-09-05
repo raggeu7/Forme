@@ -95,7 +95,7 @@
 
         .iframe-container {
             position: relative;
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            padding-bottom: 56.25%;
             height: 0;
             background-color: #000;
         }
@@ -126,7 +126,7 @@
         /* Grid Section */
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 1.5rem;
         }
 
@@ -145,7 +145,7 @@
 
         .card img {
             width: 100%;
-            height: 260px;
+            height: 240px;
             object-fit: cover;
         }
 
@@ -172,6 +172,13 @@
             border-right: 4px solid var(--accent-color);
             padding-right: 8px;
         }
+
+        .no-results {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -185,6 +192,7 @@
     </header>
 
     <div class="container">
+        <!-- مشغل الفيديو -->
         <div class="player-wrapper" id="playerSection">
             <div class="iframe-container">
                 <iframe id="videoPlayer" src="" allowfullscreen></iframe>
@@ -192,12 +200,14 @@
             <div class="player-controls">
                 <h3 id="currentTitle" style="flex: 1;">اسم العرض</h3>
                 
+                <!-- اختيار السيرفر -->
                 <select id="serverSelect" onchange="updatePlayer()">
                     <option value="vidsrc">سيرفر تلقائي 1 (Vidsrc)</option>
                     <option value="autoembed">سيرفر تلقائي 2 (AutoEmbed)</option>
                     <option value="smashystream">سيرفر تلقائي 3 (Smashy)</option>
                 </select>
 
+                <!-- أدوات المسلسلات -->
                 <div class="series-controls" id="seriesControls">
                     <label>الموسم: 
                         <input type="number" id="seasonNum" value="1" min="1" style="width: 60px;" onchange="updatePlayer()">
@@ -209,22 +219,21 @@
             </div>
         </div>
 
+        <!-- شبكة المحتوى -->
         <h2 class="section-title" id="gridTitle">الأكثر تداولاً اليوم</h2>
         <div class="grid" id="mediaGrid"></div>
     </div>
 
     <script>
-        const API_KEY = '0a1a43634d0cd31655e30fbbecbd1119'; // مفتاح TMDB مجاني للعرض
+        // مفتاحك الشخصي الجديد
+        const API_KEY = '0a1a43634d0cd31655e30fbbecbd1119'; 
         const BASE_URL = 'https://api.themoviedb.org/3';
         const IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
-        let currentMedia = null; // يحفظ بيانات العنصر المشغل حالياً
+        let currentMedia = null;
 
-        // جلب المحتوى الأكثر تداولاً عند فتح الموقع
         window.onload = () => {
             loadTrending();
-            
-            // تفعيل البحث عند الضغط على Enter
             document.getElementById('searchInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchMedia();
             });
@@ -232,9 +241,13 @@
 
         async function loadTrending() {
             document.getElementById('gridTitle').innerText = 'الأكثر تداولاً اليوم';
-            const res = await fetch(`${BASE_URL}/trending/all/day?api_key=${API_KEY}&language=ar-SA`);
-            const data = await res.json();
-            displayResults(data.results);
+            try {
+                const res = await fetch(`${BASE_URL}/trending/all/day?api_key=${API_KEY}&language=ar-SA`);
+                const data = await res.json();
+                displayResults(data.results || []);
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         async function searchMedia() {
@@ -242,19 +255,27 @@
             if (!query) return;
 
             document.getElementById('gridTitle').innerText = `نتائج البحث عن: ${query}`;
-            const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=ar-SA&query=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            displayResults(data.results);
+            try {
+                const res = await fetch(`${BASE_URL}/search/multi?api_key=${API_KEY}&language=ar-SA&query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                displayResults(data.results || []);
+            } catch (err) {
+                console.error(err);
+            }
         }
 
         function displayResults(items) {
             const grid = document.getElementById('mediaGrid');
             grid.innerHTML = '';
 
-            items.forEach(item => {
-                if (item.media_type !== 'movie' && item.media_type !== 'tv') return;
-                if (!item.poster_path) return;
+            const filteredItems = items.filter(item => (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path);
 
+            if (filteredItems.length === 0) {
+                grid.innerHTML = '<div class="no-results">لم يتم العثور على أي نتائج، جرب البحث باسم آخر.</div>';
+                return;
+            }
+
+            filteredItems.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'card';
                 
@@ -279,7 +300,6 @@
             document.getElementById('playerSection').style.display = 'block';
             document.getElementById('currentTitle').innerText = item.title || item.name;
             
-            // إظهار/إخفاء أدوات المسلسلات
             const seriesControls = document.getElementById('seriesControls');
             if (item.media_type === 'tv') {
                 seriesControls.style.display = 'flex';
@@ -287,9 +307,7 @@
                 seriesControls.style.display = 'none';
             }
 
-            // التمرير لأعلى لمشاهدة المشغل
             window.scrollTo({ top: 0, behavior: 'smooth' });
-
             updatePlayer();
         }
 
@@ -304,7 +322,6 @@
 
             let embedUrl = '';
 
-            // بناء الرابط التلقائي بناءً على السيرفر المختار
             if (server === 'vidsrc') {
                 embedUrl = type === 'movie' 
                     ? `https://vidsrc.to/embed/movie/${id}`
